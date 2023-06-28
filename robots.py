@@ -194,14 +194,38 @@ class Robot:
         base = np.identity(4)
         return itertools.accumulate(frames, np.matmul, initial=base)
 
+    def get_coordinates(self, *, apply_rounding: bool = False) -> List[Tuple[int, int, int]]:
+        """Gets the x, y, and z coordinates of each joint by performing forward kinematics
+
+        Parameters
+        ----------
+        apply_rounding: bool, default=False
+            Should the x, y, and z values be rounded to the nearest whole number
+
+        Returns
+        -------
+        List[Tuple[int, int, int]]
+            A list of tuples in the form of (x, y, z)
+        """
+
+        result = [tuple(current[0:3, 3]) for current in self.get_accumulated_frames()]
+        if apply_rounding:
+            # noinspection PyTypeChecker
+            return list(map(lambda x: tuple(map(lambda y: round(y), x)), result))
+        return result
+
     def get_plot(self) -> bytes:
         """Returns JPG encoded bytes that represent a plot of the robot's current position
 
         The plot can be configured using the `Robot().plot_config` attribute
         """
 
-        ax.lines.clear()
-        ax.texts.clear()  # clearing the lists is faster than cla()
+        # clearing the lists is faster than cla()
+        # changed in v9 - fix for new version of matplotlib
+        while len(ax.lines):
+            ax.lines[0].remove()
+        while len(ax.texts):
+            ax.texts[0].remove()
 
         # organize the coords
         xs = []
@@ -241,6 +265,18 @@ class Robot:
             plt.savefig(plt_bytes, format='jpg')
             plt_bytes.seek(0)
             return plt_bytes.read()
+
+    def get_pil_image(self) -> Image.Image:
+        """Convert the robot's current position plot into a PIL Image object
+
+        Returns
+        -------
+        PIL.Image.Image
+            The converted data as a PIL Image object
+        """
+
+        with io.BytesIO(self.get_plot()) as data:
+            return Image.open(data).copy()
 
     def get_base64_plot(self) -> str:
         """A base64 representation of the robot's current position plot"""
